@@ -11,6 +11,7 @@ PORT = 'COM4'
 # File to store output data
 OUTPUT_FILE = 'data.txt'
 
+
 def generate_chirp(t1=2e-3, phi=0, f0=5e3, f1=105e3, num_samples=2048):
     # "Chirpyness" or rate of frequency change
     k = (f1 - f0) / t1
@@ -26,68 +27,45 @@ def generate_chirp(t1=2e-3, phi=0, f0=5e3, f1=105e3, num_samples=2048):
         output[i] = round(4095/2 + 4095/2 * (chirp * window))
     return output
 
+
 def read(ser, n):
     data = ser.read(size=n)
     if VERBOSE:
         print('> ' + ''.join('{:02x} '.format(b) for b in data))
     return data
 
+
 def write(ser, data):
     ser.write(bytearray(data))
     if VERBOSE:
         print('< ' + ''.join('{:02x} '.format(b) for b in data))
 
-def main():
-    ser = serial.Serial()
-    ser.port = PORT
-    ser.baudrate =  115200 # arbitrary
-    ser.setRTS(True)
-    ser.setDTR(True)
-    ser.open()
-    
-    print('Communicating over port {}'.format(ser.name))
 
-    # Hello
-    write(ser, [0, 0, 0, 0, 0])
-    opcode, response_len = struct.unpack('<BI', read(ser, 5))
-    if opcode != 0x80 or response_len != 2:
-        print('unexpected! opcode=0x{:02x}, response_len={}'
-               .format(opcode, response_len))
-        return
+def close(ser):
+    print('Closing connection')
+    ser.close()
 
-    version = struct.unpack('<BB', read(ser, response_len))
-    print('hello: version={}'.format(version))
 
-    '''
-    # Queue data
-    chirp = generate_chirp()
+def queue(chirp):
     queue_data = [0] * (1 + 4 + 4096 + 1)
-
     queue_data[0] = 1
     queue_data[1] = (4096 >> 0) & 0xff
     queue_data[2] = (4096 >> 8) & 0xff
     queue_data[3] = (4096 >> 16) & 0xff
     queue_data[4] = (4096 >> 24) & 0xff
     for i in range(2048):
-        queue_data[5 + 2*i + 0] = (chirp[i] >> 0) & 0xff
-        queue_data[5 + 2*i + 1] = (chirp[i] >> 8) & 0xff
-    
-    write(ser, queue_data)
-    opcode, response_len = struct.unpack('<BI', read(ser, 5))
-    if opcode != 0x81 or response_len != 0:
-        print('unexpected! opcode=0x{:02x}, response_len={:04}'
-               .format(opcode, response_len))
-        return
+        queue_data[5 + 2 * i + 0] = (chirp[i] >> 0) & 0xff
+        queue_data[5 + 2 * i + 1] = (chirp[i] >> 8) & 0xff
+    return queue_data
 
-    print('queue_data'.format(version))
-    '''
 
+def request_data(ser):
     # Initiate data collection
     write(ser, [2, 0, 0, 0, 0])
     opcode, response_len = struct.unpack('<BI', read(ser, 5))
     if opcode != 0x82 or response_len != 0:
         print('unexpected! opcode=0x{:02x}, response_len={}'
-               .format(opcode, response_len))
+              .format(opcode, response_len))
         return
 
     print('collect_data: started... ', end='')
@@ -96,7 +74,7 @@ def main():
     opcode, response_len = struct.unpack('<BI', read(ser, 5))
     if opcode != 0x82:
         print('unexpected! opcode=0x{:02x}, response_len={}'
-               .format(opcode, response_len))
+              .format(opcode, response_len))
         return
 
     print('done! ({} data points)'.format(response_len // 2))
@@ -109,8 +87,63 @@ def main():
             f.write('{}\n'.format(data))
     print('Output data written to {}'.format(OUTPUT_FILE))
 
-    print('Closing connection')
-    ser.close()
+
+def init_daq(port):
+    ser = serial.Serial()
+    ser.port = port
+    ser.baudrate = 115200  # arbitrary
+    ser.setRTS(True)
+    ser.setDTR(True)
+    ser.open()
+    # Handshake
+    write(ser, [0, 0, 0, 0, 0])
+    opcode, response_len = struct.unpack('<BI', read(ser, 5))
+
+    if opcode != 0x80 or response_len != 2:
+        print('unexpected! opcode=0x{:02x}, response_len={}'
+              .format(opcode, response_len))
+        exit(1)
+
+    # write version
+    version = struct.unpack('<BB', read(ser, response_len))
+    print('hello: version={}'.format(version))
+    print('Communicating over port {}'.format(ser.name))
+    return ser
+
+
+def reset(ser):
+    write(ser, [3, 0, 0, 0, 0])
+    opcode, response_len = struct.unpack('<BI', read(ser, 5))
+
+    if opcode != 0x80 or response_len != 2:
+        print('unexpected! opcode=0x{:02x}, response_len={}'
+              .format(opcode, response_len))
+        exit(1)
+
+
+def main():
+    myDaq = init_daq(PORT)
+    request_data(myDaq)
+
+
+
+
 
 if __name__ == '__main__':
     main()
+
+#test
+    """
+    # Queue data
+    chirp = generate_chirp()
+    queue_data = queue(chirp)
+
+    write(ser, queue_data)
+    opcode, response_len = struct.unpack('<BI', read(ser, 5))
+    if opcode != 0x81 or response_len != 0:
+        print('unexpected! opcode=0x{:02x}, response_len={:04}'
+               .format(opcode, response_len))
+        return
+
+    print('queue_data'.format(version))
+    """

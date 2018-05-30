@@ -312,7 +312,7 @@ void loop() {
         break;
       }
 
-      /*
+      
       // Queue data
       case 0x01: {
         //TODO error handling
@@ -329,7 +329,7 @@ void loop() {
         SerialUSB.write(response, 5);
         break;
       }
-      */
+      
 
       //TODO channel configuration packets
 
