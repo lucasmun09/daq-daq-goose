@@ -147,7 +147,7 @@ void setup_adc() {
 // A junk variable we point the DMA buffer to before stopping the ADC.
 // This is to ensure that we don't overwrite anything, but might not
 // be entirely necessary
-uint16_t adc_junk_space[1] = {0};
+uint16_t adc_junk_space[1] = {2048};
 
 // Interrupt handler for the ADC peripheral
 void ADC_Handler() {
@@ -155,9 +155,9 @@ void ADC_Handler() {
     if (adc_block_index >= num_adc_blocks) {
       adc_stop(ADC);
       TC_Stop(TC0, 0);
-      
+
       data_ready = true;
-      
+
       ADC->ADC_RPR = ADC->ADC_RNPR = (uint32_t)adc_junk_space;
       ADC->ADC_RCR = ADC->ADC_RNCR = 1;
       return;
@@ -171,11 +171,11 @@ void ADC_Handler() {
 void setup_dac() {
   // Enable the clock of the peripheral
   pmc_enable_periph_clk(DACC_INTERFACE_ID);
-  
+
   dacc_reset(DACC);
   dacc_set_transfer_mode(DACC, 0);
   dacc_set_power_save(DACC, 0, 1);
-  
+
   dacc_set_analog_control(DACC, DACC_ACR_IBCTLCH0(0x02) | DACC_ACR_IBCTLCH1(0x02) | DACC_ACR_IBCTLDACCORE(0x01));
   dacc_set_trigger(DACC, 1);
 
@@ -190,7 +190,7 @@ void setup_dac() {
   DACC->DACC_PTCR = DACC_PTCR_TXTEN;
 
   dacc_enable_interrupt(DACC, DACC_IER_ENDTX);
-  
+
   DACC->DACC_TPR = (uint32_t)(output_waveform);
   DACC->DACC_TCR = dac_block_size;
   if (num_dac_blocks > 1) {
@@ -201,7 +201,7 @@ void setup_dac() {
 
 // A constant buffer for DMA to force the DAC to output its lowest value
 // after stopping it
-uint16_t dac_zero[1] = {0};
+uint16_t dac_zero[1] ={2048};
 
 // Interrupt handler for the DAC peripheral
 void DACC_Handler() {
@@ -245,7 +245,7 @@ void setup() {
 
 void loop() {
   static bool collect_data = false;
-  
+
   // Don't poll while we're collecting data (although this is unlikely to be
   // hit considering all of the cycles are consumed by the timer)
   if (collect_data && !data_ready) {
@@ -255,7 +255,7 @@ void loop() {
   // Transmit the collected data when it's ready
   if (data_ready) {
     int body_len = num_adc_samples * 2;
-    char header[5] = { 
+    char header[5] = {
       0x82,
       (body_len >> 0*8) & 0xff,
       (body_len >> 1*8) & 0xff,
@@ -267,13 +267,7 @@ void loop() {
     // Assuming that we have two channels of data, it was interleaved.
     // To simplify processing, we return the two channels separately
     char data_point[2];
-    for (int n = 0; n < num_adc_blocks; n += 1) {
-      for (int m = 0; m < adc_block_size; m += 2) {
-        data_point[0] = (input_waveforms[n][m] >> 0*8) & 0xff;
-        data_point[1] = (input_waveforms[n][m] >> 1*8) & 0xff;
-        SerialUSB.write(data_point, 2);
-      }
-    }
+
     for (int n = 0; n < num_adc_blocks; n += 1) {
       for (int m = 1; m < adc_block_size; m += 2) {
         data_point[0] = (input_waveforms[n][m] >> 0*8) & 0xff;
@@ -281,7 +275,13 @@ void loop() {
         SerialUSB.write(data_point, 2);
       }
     }
-    
+    for (int n = 0; n < num_adc_blocks; n += 1) {
+      for (int m = 0; m < adc_block_size; m += 2) {
+        data_point[0] = (input_waveforms[n][m] >> 0*8) & 0xff;
+        data_point[1] = (input_waveforms[n][m] >> 1*8) & 0xff;
+        SerialUSB.write(data_point, 2);
+      }
+    }
     data_ready = false;
     collect_data = false;
   }
@@ -312,7 +312,7 @@ void loop() {
         break;
       }
 
-      
+
       // Queue data
       case 0x01: {
         //TODO error handling
@@ -323,11 +323,10 @@ void loop() {
           data_point = data_point | (SerialUSB.read() << 8);
           output_waveform[i] = data_point;
         }
-
-        // Acknowledge the data
         char response[5] = { opcode | 0x80, 0, 0, 0, 0 };
         SerialUSB.write(response, 5);
         break;
+        // Acknowledge the data
       }
       
 
