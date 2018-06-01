@@ -198,24 +198,27 @@ void setup_dac() {
 
 // A constant buffer for DMA to force the DAC to output its lowest value
 // after stopping it
-uint16_t dac_zero[1] = {0};
+uint16_t dac_zero[1] = {2047};
 
 // Interrupt handler for the DAC peripheral
 void DACC_Handler() {
   if (DACC->DACC_ISR & DACC_ISR_ENDTX) {
+    
     if (dac_block_index >= num_dac_blocks) {
       dacc_disable_interrupt(DACC, DACC_IER_ENDTX);
       DACC->DACC_TPR = DACC->DACC_TNPR = (uint32_t)dac_zero;
       DACC->DACC_TCR = DACC->DACC_TNCR = 1;
       return;
     }
+    
     DACC->DACC_TNPR = (uint32_t)(output_waveform + dac_block_size * (++dac_block_index % num_dac_blocks));
     DACC->DACC_TNCR = dac_block_size;
   }
+  
 }
 
 void setup() {
-  Serial.begin(115200);
+  SerialUSB.begin(115200);
 
   // Enable output on B ports
   REG_PIOB_OWER = 0xFFFFFFFF;
@@ -235,24 +238,24 @@ void setup() {
 
 void loop() {
   if (data_ready) {
-    Serial.print("wave1 = [");
+    SerialUSB.print("wave1 = [");
     for (int n = 0; n < num_adc_blocks; n += 1) {
       for (int m = 0; m < adc_block_size; m += 2) {
-        Serial.print(input_waveforms[n][m], DEC);
-        Serial.print(" ");
+        SerialUSB.print(input_waveforms[n][m], DEC);
+        SerialUSB.print(" ");
       }
-      Serial.flush();
+      SerialUSB.flush();
     }
-    Serial.println("];");
-    Serial.print("wave2 = [");
+    SerialUSB.println("];");
+    SerialUSB.print("wave2 = [");
     for (int n = 0; n < num_adc_blocks; n += 1) {
       for (int m = 1; m < adc_block_size; m += 2) {
-        Serial.print(input_waveforms[n][m], DEC);
-        Serial.print(" ");
+        SerialUSB.print(input_waveforms[n][m], DEC);
+        SerialUSB.print(" ");
       }
-      Serial.flush();
+      SerialUSB.flush();
     }
-    Serial.println("];");
+    SerialUSB.println("];");
 
     data_ready = false;
   }
