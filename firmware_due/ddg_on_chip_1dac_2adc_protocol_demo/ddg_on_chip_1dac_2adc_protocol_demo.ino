@@ -179,8 +179,8 @@ void setup_dac() {
   dacc_set_analog_control(DACC, DACC_ACR_IBCTLCH0(0x02) | DACC_ACR_IBCTLCH1(0x02) | DACC_ACR_IBCTLDACCORE(0x01));
   dacc_set_trigger(DACC, 1);
 
-  dacc_set_channel_selection(DACC, 0);
-  dacc_enable_channel(DACC, 0);
+  dacc_set_channel_selection(DACC, 1);
+  dacc_enable_channel(DACC, 1);
 
   NVIC_DisableIRQ(DACC_IRQn);
   NVIC_ClearPendingIRQ(DACC_IRQn);
