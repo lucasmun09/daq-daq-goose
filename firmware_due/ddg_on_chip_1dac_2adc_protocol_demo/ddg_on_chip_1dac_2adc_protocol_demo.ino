@@ -1,3 +1,4 @@
+
 #define VERSION_MAJOR 0
 #define VERSION_MINOR 1
 
@@ -23,8 +24,10 @@ uint16_t output_waveform[num_dac_samples];
 
 // The ADC channels to sample. Note that the port numbers on the
 // Due (A0-7) count in reverse order to the SAM3X's channels (CH7-0),
-// i.e. A0 is CH7 and A1 is CH6
-const int adc_channels = ADC_CHER_CH7 | ADC_CHER_CH6;
+// i.e. A0 is CH7, A1 is CH6, and A2 is CH5 
+//const int adc_channels = ADC_CHER_CH7 | ADC_CHER_CH6;
+const int adc_channels = ADC_CHER_CH6 | ADC_CHER_CH5;
+
 // Number of channels listed above
 const int num_adc_channels = 2;
 // Size of each block in the ADC buffer

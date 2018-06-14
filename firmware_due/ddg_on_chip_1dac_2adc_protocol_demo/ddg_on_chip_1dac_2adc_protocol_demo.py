@@ -6,7 +6,7 @@ import math
 VERBOSE = 1
 
 # Native USB port of Due (use Device Manager to find)
-PORT = 'COM4'
+PORT = 'COM6'
 
 # File to store output data
 OUTPUT_FILE = 'data.txt'
