@@ -1,6 +1,6 @@
-
 #define VERSION_MAJOR 0
 #define VERSION_MINOR 1
+#define SERIAL Serial1
 
 // 1.6 MHz is the max frequency of the DAC, so it's easiest
 // just to scale everything off of it
@@ -234,9 +234,9 @@ void reset() {
 }
 
 void setup() {
-  // USB serial is performed at native speed, negotiated by the host.
+  // USB SERIAL.is performed at native speed, negotiated by the host.
   // The baud rate set here will be ignored
-  Serial.begin(1337);
+  SERIAL.begin(57600);
 
   // Enable output on B ports
   REG_PIOB_OWER = 0xFFFFFFFF;
@@ -265,7 +265,7 @@ void loop() {
       (body_len >> 2*8) & 0xff,
       (body_len >> 3*8) & 0xff,
     };
-    SerialUSB.write(header, 5);
+    SERIAL.write(header, 5);
 
     // Assuming that we have two channels of data, it was interleaved.
     // To simplify processing, we return the two channels separately
@@ -275,14 +275,14 @@ void loop() {
       for (int m = 1; m < adc_block_size; m += 2) {
         data_point[0] = (input_waveforms[n][m] >> 0*8) & 0xff;
         data_point[1] = (input_waveforms[n][m] >> 1*8) & 0xff;
-        SerialUSB.write(data_point, 2);
+        SERIAL.write(data_point, 2);
       }
     }
     for (int n = 0; n < num_adc_blocks; n += 1) {
       for (int m = 0; m < adc_block_size; m += 2) {
         data_point[0] = (input_waveforms[n][m] >> 0*8) & 0xff;
         data_point[1] = (input_waveforms[n][m] >> 1*8) & 0xff;
-        SerialUSB.write(data_point, 2);
+        SERIAL.write(data_point, 2);
       }
     }
     data_ready = false;
@@ -291,16 +291,16 @@ void loop() {
 
   // Poll for incoming request packets
   // A packet header consists of an opcode (1 byte) and body length (4 bytes)
-  if (SerialUSB.available() >= 5) {
-    uint8_t opcode = SerialUSB.read();
+  if (SERIAL.available() >= 5) {
+    uint8_t opcode = SERIAL.read();
     // We enforce little-endian for all communications.
     // Do not combine these lines: the lack of a sequence point
     // would cause undefined behavior as the calls to read() have
     // side effects
-    uint32_t input_len = SerialUSB.read();
-    input_len = input_len | (SerialUSB.read() << 8);
-    input_len = input_len | (SerialUSB.read() << 16);
-    input_len = input_len | (SerialUSB.read() << 24);
+    uint32_t input_len = SERIAL.read();
+    input_len = input_len | (SERIAL.read() << 8);
+    input_len = input_len | (SERIAL.read() << 16);
+    input_len = input_len | (SERIAL.read() << 24);
 
     // Dispatch the packet to its handler
     switch (opcode) {
@@ -311,7 +311,7 @@ void loop() {
           2, 0, 0, 0,
           VERSION_MAJOR, VERSION_MINOR
         };
-        SerialUSB.write(response, 7);
+        SERIAL.write(response, 7);
         break;
       }
 
@@ -322,12 +322,12 @@ void loop() {
 
         // Queue the data to the DAC
         for (int i = 0; i < input_len; i++) {
-          uint16_t data_point = SerialUSB.read();
-          data_point = data_point | (SerialUSB.read() << 8);
+          uint16_t data_point = SERIAL.read();
+          data_point = data_point | (SERIAL.read() << 8);
           output_waveform[i] = data_point;
         }
         char response[5] = { opcode | 0x80, 0, 0, 0, 0 };
-        SerialUSB.write(response, 5);
+        SERIAL.write(response, 5);
         break;
         // Acknowledge the data
       }
@@ -338,7 +338,7 @@ void loop() {
       // Collect data
       case 0x02: {
         char response[5] = { opcode | 0x80, 0, 0, 0, 0 };
-        SerialUSB.write(response, 5);
+        SERIAL.write(response, 5);
         
         collect_data = true;
 
@@ -355,10 +355,10 @@ void loop() {
         response[2] = (uint8_t)(msg_len >> 8);
         response[3] = (uint8_t)(msg_len >> 16);
         response[4] = (uint8_t)(msg_len >> 24);
-        SerialUSB.write(response, msg_len + 5);
+        SERIAL.write(response, msg_len + 5);
         break;
       }
     }
   }
 }
-
+ 
