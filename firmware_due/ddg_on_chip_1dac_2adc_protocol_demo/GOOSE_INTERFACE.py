@@ -101,11 +101,12 @@ def request_data(ser):
     print('collect_data: started... ', end='')
 
     # TODO -- insert SecureDataReceive
+    # header = read(ser, 5)
     raw_data = []
     while True:
         data_point = read(ser, 2)  # Get data from the Due
         write(ser, data_point)  # Send back received data
-        opcode, response_len = struct.unpack('<BI', read(ser, 5))
+        opcode = struct.unpack('B', read(ser, 1))
         if opcode == 0x85:
             raw_data.append(data_point)
         if opcode == 0x86:

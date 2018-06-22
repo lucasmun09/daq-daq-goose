@@ -235,7 +235,6 @@ void reset() {
 
 void SecureDataSend(char* data_point, int safeTimeOut) {
   SERIAL.write(data_point, 2); //send 2 byte data point to PC
-  SERIAL.flush();
   //PC receives data and sends it back
   char datacheck[2];
   datacheck[0] = SERIAL.read(); //Due reads data from PC
@@ -249,16 +248,13 @@ void SecureDataSend(char* data_point, int safeTimeOut) {
     delay(safeTimeOut);
     if (datacheck == data_point) { //check if data matches
       char data_opcode = 0x05; //if data matches end loop and send next data point
-      char response[5] = {data_opcode | 0x80, 0, 0, 0, 0};
-      SERIAL.flush();
-      SERIAL.write(response, 5);
+      char response[1] = {data_opcode | 0x80};
+      SERIAL.write(response, 1);
       data_match == true;
     } else {
       char data_opcode = 0x06; //else resend same data point
-      char response[5] = {data_opcode | 0x80, 0, 0, 0, 0};
-      SERIAL.flush();
-      SERIAL.write(response, 5);
-      SERIAL.flush();
+      char response[1] = {data_opcode | 0x80};
+      SERIAL.write(response, 1);
       SERIAL.write(data_point, 2);
       retries++; 
       data_match == false;    
@@ -296,16 +292,16 @@ void loop() {
   }
 
   // Transmit the collected data when it's ready
-  if (data_ready) {
-    int body_len = num_adc_samples * 2;
-    char header[5] = {
-      0x82,
-      (body_len >> 0*8) & 0xff,
-      (body_len >> 1*8) & 0xff,
-      (body_len >> 2*8) & 0xff,
-      (body_len >> 3*8) & 0xff,
-    };
-    SERIAL.write(header, 5);
+   if (data_ready) {
+//    int body_len = num_adc_samples * 2;
+//    char header[5] = {
+//      0x82,
+//      (body_len >> 0*8) & 0xff,
+//      (body_len >> 1*8) & 0xff,
+//      (body_len >> 2*8) & 0xff,
+//      (body_len >> 3*8) & 0xff,
+//    };
+//    SERIAL.write(header, 5);
 
     // Assuming that we have two channels of data, it was interleaved.
     // To simplify processing, we return the two channels separately
