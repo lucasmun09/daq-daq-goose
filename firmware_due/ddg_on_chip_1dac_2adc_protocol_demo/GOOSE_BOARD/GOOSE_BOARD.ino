@@ -234,33 +234,40 @@ void reset() {
 }
 
 void SecureDataSend(char* data_point, int safeTimeOut) {
-  Serial1.write(data_point, 2); //send 2 byte data point to PC
+  SERIAL.write(data_point, 2); //send 2 byte data point to PC
+  SERIAL.flush();
   //PC receives data and sends it back
-  uint16_t datacheck = Serial1.read(); //Due reads data from PC
-  datacheck = datacheck | ( Serial1.read() << 8 );
+  char datacheck[2];
+  datacheck[0] = SERIAL.read(); //Due reads data from PC
+  datacheck[1] = SERIAL.read();
   //set defaults and key
-  uint16_t data_point_key = (data_point[1] << 8) | (data_point[0]);
-  char data_opcode = 0x84; //default data opcode: send next data point 
+  char data_opcode = 0x06; //default data opcode: send next data point 
   bool data_match = false; //default data match
   int retries = 0; //reset retries to 0
   while (data_match == false && retries <= 5) { 
     //try 5 times to get data to match
     delay(safeTimeOut);
-    if (datacheck == data_point_key) { //check if data matches
+    if (datacheck == data_point) { //check if data matches
+      char data_opcode = 0x05; //if data matches end loop and send next data point
+      char response[5] = {data_opcode | 0x80, 0, 0, 0, 0};
+      SERIAL.flush();
+      SERIAL.write(response, 5);
       data_match == true;
-      char data_opcode[1] = {0x05}; //if data matches end loop and send next data point
-      Serial.write(data_opcode, 1);
     } else {
-      data_match == false;
       char data_opcode = 0x06; //else resend same data point
-      Serial1.write(data_point, 2);
+      char response[5] = {data_opcode | 0x80, 0, 0, 0, 0};
+      SERIAL.flush();
+      SERIAL.write(response, 5);
+      SERIAL.flush();
+      SERIAL.write(data_point, 2);
       retries++; 
+      data_match == false;    
     }
   } 
   if (retries == 6 ) {
     delay(safeTimeOut);
     char response[5] = {6, 6, 6, 6, 6}; //critical failure!
-    Serial1.write(response, 5);
+    SERIAL.write(response, 5);
     delay(100);
   }
 }
@@ -269,7 +276,7 @@ void SecureDataSend(char* data_point, int safeTimeOut) {
 void setup() {
   // USB SERIAL.is performed at native speed, negotiated by the host.
   // The baud rate set here will be ignored
-  SERIAL.begin(57600);
+  SERIAL.begin(19200);
 
   // Enable output on B ports
   REG_PIOB_OWER = 0xFFFFFFFF;
@@ -308,16 +315,19 @@ void loop() {
       for (int m = 1; m < adc_block_size; m += 2) {
         data_point[0] = (input_waveforms[n][m] >> 0*8) & 0xff;
         data_point[1] = (input_waveforms[n][m] >> 1*8) & 0xff;
-        SecureDataSend(data_point, 0);
+        SecureDataSend(data_point, 500);
       }
     }
     for (int n = 0; n < num_adc_blocks; n += 1) {
       for (int m = 0; m < adc_block_size; m += 2) {
         data_point[0] = (input_waveforms[n][m] >> 0*8) & 0xff;
         data_point[1] = (input_waveforms[n][m] >> 1*8) & 0xff;
-        SecureDataSend(data_point, 0);
+        SecureDataSend(data_point, 500);
       }
     }
+    char data_opcode = 0x07;
+    char response[5] = {data_opcode | 0x80, 0, 0, 0, 0};
+    SERIAL.write(response, 5);
     data_ready = false;
     collect_data = false;
   }

@@ -6,7 +6,7 @@ import math
 VERBOSE = 1
 
 # Native USB port of Due (use Device Manager to find)
-PORT = 'COM13'
+PORT = 'COM3'
 
 # File to store output data
 OUTPUT_FILE = 'data.txt'
@@ -15,7 +15,7 @@ OUTPUT_FILE = 'data.txt'
 TIMEOUT = 30
 
 # Baudrate for data transfer rate
-BAUD = 57600
+BAUD = 19200
 
 
 def generate_chirp(t1, phi, f0, f1, num_samples):
@@ -100,6 +100,21 @@ def request_data(ser):
 
     print('collect_data: started... ', end='')
 
+    # TODO -- insert SecureDataReceive
+    raw_data = []
+    while True:
+        data_point = read(ser, 2)  # Get data from the Due
+        write(ser, data_point)  # Send back received data
+        opcode, response_len = struct.unpack('<BI', read(ser, 5))
+        if opcode == 0x85:
+            raw_data.append(data_point)
+        if opcode == 0x86:
+            pass
+        if opcode == 0x87:
+            break
+        else:
+            print('unexpected! Your system is shit!')
+
     # Response that data collection has finished
     opcode, response_len = struct.unpack('<BI', read(ser, 5))
     if opcode != 0x82:
@@ -111,8 +126,9 @@ def request_data(ser):
 
     # Record the data
 
-    raw_data = read(ser, response_len)
+    # raw_data = read(ser, response_len)
     total_length = len(raw_data)
+
     with open("1-" + OUTPUT_FILE, 'w') as f:
         for i in range(0, int(total_length/2), 2):
             data = raw_data[i] | (raw_data[i + 1] << 8)
