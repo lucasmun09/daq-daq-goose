@@ -234,38 +234,57 @@ void reset() {
 }
 
 void SecureDataSend(char* data_point, int safeTimeOut) {
-  SERIAL.write(data_point, 2); //send 2 byte data point to PC
-  //PC receives data and sends it back
-  char datacheck[2];
-  datacheck[0] = SERIAL.read(); //Due reads data from PC
-  datacheck[1] = SERIAL.read();
-  //set defaults and key
-  char data_opcode = 0x06; //default data opcode: send next data point 
-  bool data_match = false; //default data match
-  int retries = 0; //reset retries to 0
-  while (data_match == false && retries <= 5) { 
-    //try 5 times to get data to match
-    delay(safeTimeOut);
-    if (datacheck == data_point) { //check if data matches
-      char data_opcode = 0x05; //if data matches end loop and send next data point
-      char response[1] = {data_opcode | 0x80};
-      SERIAL.write(response, 1);
-      data_match == true;
-    } else {
-      char data_opcode = 0x06; //else resend same data point
-      char response[1] = {data_opcode | 0x80};
-      SERIAL.write(response, 1);
-      SERIAL.write(data_point, 2);
-      retries++; 
-      data_match == false;    
-    }
-  } 
-  if (retries == 6 ) {
-    delay(safeTimeOut);
-    char response[5] = {6, 6, 6, 6, 6}; //critical failure!
-    SERIAL.write(response, 5);
-    delay(100);
-  }
+    //set defaults and key
+    char data_opcode = 0x05; //default data opcode: send next data point 
+    bool data_match = false; //default data match
+    int retries = 0; //reset retries to 0
+  
+    while (data_match == false && retries <= 5) { 
+        SERIAL.write(data_point, 2); //send 2 byte data point to PC
+        SERIAL.flush();
+        
+        SerialUSB.print("  data point  ");
+        SerialUSB.print(data_point[0], HEX);
+        SerialUSB.println(data_point[1], HEX);
+        //PC receives data and sends it back
+        char datacheck[2];
+        while (!SERIAL.available()) {SerialUSB.println("waiting for next"); delay(1);}
+        SerialUSB.print("  datapoint recieved  ");
+        datacheck[0] = SERIAL.read(); 
+        SerialUSB.print(datacheck[0], HEX);
+        while (!SERIAL.available()) {delay(1);}
+        datacheck[1] = SERIAL.read();
+        SerialUSB.println(datacheck[1], HEX);  
+
+        uint16_t rxd = ( datacheck[0] << 8 ) | datacheck[1] ;
+        uint16_t key = ( data_point[0] <<8) | data_point[1] ;
+            
+        //try 5 times to get data to match
+        delay(safeTimeOut);
+        if (rxd == key ) { //check if data matches
+            char data_opcode = 0x05; //if data matches end loop and send next data point
+            char response[5] = {data_opcode | 0x80, 0, 0, 0 ,0};
+            SERIAL.write(response, 5);
+            SERIAL.flush();
+            data_match == true;
+            return;
+        } else {
+            char data_opcode = 0x06; //else resend same data point
+            char response[5] = {data_opcode | 0x80, 0, 0, 0, 0};
+            SERIAL.write(response, 5);
+            SERIAL.flush();
+            delay(10);    
+            retries++; 
+            data_match == false;    
+        }
+      } 
+      if (retries == 6 ) {
+        //delay(safeTimeOut);
+        char response[5] = {6, 6, 6, 6, 6}; //critical failure!
+        SERIAL.write(response, 5);
+        SERIAL.flush(); 
+        //delay(1);
+      }
 }
 
 
@@ -273,6 +292,7 @@ void setup() {
   // USB SERIAL.is performed at native speed, negotiated by the host.
   // The baud rate set here will be ignored
   SERIAL.begin(19200);
+  SerialUSB.begin(9600);
 
   // Enable output on B ports
   REG_PIOB_OWER = 0xFFFFFFFF;
@@ -311,14 +331,14 @@ void loop() {
       for (int m = 1; m < adc_block_size; m += 2) {
         data_point[0] = (input_waveforms[n][m] >> 0*8) & 0xff;
         data_point[1] = (input_waveforms[n][m] >> 1*8) & 0xff;
-        SecureDataSend(data_point, 500);
+        SecureDataSend(data_point, 100);
       }
     }
     for (int n = 0; n < num_adc_blocks; n += 1) {
       for (int m = 0; m < adc_block_size; m += 2) {
         data_point[0] = (input_waveforms[n][m] >> 0*8) & 0xff;
         data_point[1] = (input_waveforms[n][m] >> 1*8) & 0xff;
-        SecureDataSend(data_point, 500);
+        SecureDataSend(data_point, 100);
       }
     }
     char data_opcode = 0x07;
@@ -401,3 +421,4 @@ void loop() {
   }
 }
  
+

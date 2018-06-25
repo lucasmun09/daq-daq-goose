@@ -1,6 +1,7 @@
 import serial
 import struct
 import math
+import time
 
 # Show all packets
 VERBOSE = 1
@@ -103,18 +104,39 @@ def request_data(ser):
     # TODO -- insert SecureDataReceive
     # header = read(ser, 5)
     raw_data = []
+    continue_code = 0
     while True:
+        while ser.in_waiting < 2:
+                   print("waiting for data  ")
+                   time.sleep(0.001)
         data_point = read(ser, 2)  # Get data from the Due
+        #ser.reset_input_buffer()
+        print(data_point)
+        print("waiting before send")
+        print(ser.out_waiting)
+        write(ser, data_point)
         write(ser, data_point)  # Send back received data
-        opcode = struct.unpack('B', read(ser, 1))
-        if opcode == 0x85:
+        print("waiting after send:")
+        print(ser.out_waiting)
+        ser.reset_output_buffer()
+        print("reset complete, waiting after reset:")
+        print(ser.out_waiting)
+        while ser.in_waiting < 5:
+            time.sleep(0.001)
+        new_opcode, body_len = struct.unpack('<BI', read(ser, 5))
+        print(new_opcode)
+        if new_opcode == 133:
             raw_data.append(data_point)
-        if opcode == 0x86:
-            pass
-        if opcode == 0x87:
+            print("data delivery success: appending")
+        if new_opcode == 134:
+            print("delivery corrupted or failed - resending data point")
+        if new_opcode == 135:
+            print("end of data delivery")
             break
-        else:
-            print('unexpected! Your system is shit!')
+        if new_opcode != 133 & new_opcode != 134 & new_opcode != 135:
+            print('unexpected! Your system is bad!')
+        ser.reset_input_buffer()
+        print("reset input buffer")
 
     # Response that data collection has finished
     opcode, response_len = struct.unpack('<BI', read(ser, 5))
